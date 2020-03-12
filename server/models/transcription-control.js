@@ -12,6 +12,8 @@ const Poller = require("../utils/poller");
 module.exports = function(TranscriptionControl) {
   var uploadedFileName = "";
 
+  var maxSize = 1 * 1024 * 1024; // 1MB Max file size
+
   var storage = multer.diskStorage({
     destination: function(req, file, cb) {
       // checking and creating uploads folder where files will be uploaded
@@ -28,11 +30,27 @@ module.exports = function(TranscriptionControl) {
   });
 
   TranscriptionControl.findOwnedById = async function (id, options) {
-    let found = await this.find({ where: { and: [ { id: id }, { userId: options.accessToken.userId }]}}, { limit: 1 });
+    let filter = { where: { and: [ { id: id }, { userId: options.accessToken.userId }]}}
+    if (options.accessToken.userId == process.env.ADMIN_ID) {
+      filter = { where: { id: id }}
+    }
+    let found = await this.find(filter, { limit: 1 });
+    if (found.length > 0 && found[0].progress != 'COMPLETE') {
+      let shouldPoll = await updateTranscriptionControlStatus(found[0])
+    }
     return found.length > 0 ? found[0] : {};
   }
   
   TranscriptionControl.transcribeAudio = async function(req, res, options) {
+    // Check whether this user has any other transcriptions and remove them first.
+    if (options.accessToken.userId !== process.env.ADMIN_ID) {
+      let foundExistingOutcome = await this.find({ where: { userId: options.accessToken.userId }});
+      if (foundExistingOutcome.length > 0) {
+        console.log('Removing existing transcription resources for user id.')
+        await this.cleanupExistingResources(foundExistingOutcome[0].id, options)
+      }  
+    }
+
     // Save the uploaded file to the uploads directory
     let uploadToLocalOutcome = await uploadFileToLocal(req, res);
 
@@ -145,7 +163,7 @@ module.exports = function(TranscriptionControl) {
 
   TranscriptionControl.getAudioUrl = async function getAudioUrl(id, options) {
     let transcriptionControlInstance = await this.findById(id);
-    if (transcriptionControlInstance.userId != options.accessToken.userId) {
+    if (transcriptionControlInstance.userId != options.accessToken.userId && options.accessToken.userId != process.env.ADMIN_ID) {
       const noAccessError = new Error(
         'Resources belong to another user.'
       );
@@ -168,12 +186,15 @@ module.exports = function(TranscriptionControl) {
 
   function retrieveTranscriptionResults(transcriptionControlInstance) {
     return new Promise(async (resolve, reject) => {
+      if (transcriptionControlInstance.progress == 'COMPLETE') {
+        // Not going yto find any because it was deleted.
+        return resolve({})
+      }
       let transcriptionStatus = await AzureSpeechUtilsLocal.getTranscriptionStatus(
         transcriptionControlInstance.reference
       );
-
       if (transcriptionStatus.results.length === 0) {
-        resolve({});
+        return resolve({});
       }
 
       let transcriptionResultsUrl =
@@ -210,50 +231,90 @@ module.exports = function(TranscriptionControl) {
 
       poller.onPoll(async () => {
         console.log("Checking Transcription Status.");
-
-        let transcriptionStatus = await AzureSpeechUtilsLocal.getTranscriptionStatus(
-          transcriptionControlInstance.reference
-        );
-
-        transcriptionControlInstance.status = transcriptionStatus;
-        transcriptionControlInstance.progress = "RUNNING ";
-        transcriptionControlInstance.save();
-
-        if (
-          transcriptionStatus.status == "Succeeded" ||
-          transcriptionStatus.status == "Failed"
-        ) {
-          let retrieveTranscriptionResultsOutcome = await retrieveTranscriptionResults(transcriptionControlInstance);
-
-          transcriptionControlInstance.progress = "COMPLETE";
-          transcriptionControlInstance.transcription = retrieveTranscriptionResultsOutcome;
-          transcriptionControlInstance.save();
-          // 2. Delete Transcription Results from Azure
-          let transcriptionResultsUrl =
-            transcriptionControlInstance.status.results[0].resultUrls[0].resultUrl;
-          let blobPath = url.parse(transcriptionResultsUrl).pathname;
-          let folderName = blobPath.split("/")[2];
-          let fileName = blobPath.split("/")[3];
-
-          let deleteTranscriptionOutcome = await AzureBlobUtilsInternal.deleteBlob(
-            process.env.AZURE_STORAGE_TRANSCRIPT_CONTAINER,
-            folderName + "/" + fileName
-          );
-          // And Exit
-        } else {
-          poller.poll(); // Go for the next poll
-        }
+        let shouldPoll = await updateTranscriptionControlStatus(transcriptionControlInstance)
+        if (shouldPoll) {
+          poller.poll();
+        }        
       });
-
       // Initial start
       poller.poll();
     });
   }
 
+  async function updateTranscriptionControlStatus (transcriptionControlInstance) {
+
+    let shouldPoll = false;
+
+    let transcriptionStatus = await AzureSpeechUtilsLocal.getTranscriptionStatus(
+      transcriptionControlInstance.reference
+    );
+
+    transcriptionControlInstance.status = transcriptionStatus;
+    let retrieveTranscriptionResultsOutcome;
+
+    switch (transcriptionStatus.status) {
+      case 'Running':
+        transcriptionControlInstance.progress = "RUNNING";
+        transcriptionControlInstance.save();
+        shouldPoll = true;
+        break;
+      case 'Succeeded': 
+        retrieveTranscriptionResultsOutcome = await retrieveTranscriptionResults(transcriptionControlInstance);
+
+        transcriptionControlInstance.progress = "COMPLETE";
+        transcriptionControlInstance.transcription = retrieveTranscriptionResultsOutcome;
+        transcriptionControlInstance.save();
+
+        // 2. Delete Transcription Results from Azure
+        await removeTranscriptionResults(transcriptionControlInstance)
+        // And Exit
+        break;
+      case 'Failed':
+        retrieveTranscriptionResultsOutcome = await retrieveTranscriptionResults(transcriptionControlInstance);
+
+        transcriptionControlInstance.progress = "FAILED";
+        transcriptionControlInstance.transcription = retrieveTranscriptionResultsOutcome;
+        transcriptionControlInstance.save();
+
+        // 2. Delete Transcription Results from Azure
+        removeTranscriptionResults(transcriptionControlInstance)
+        break;
+      case 'NotStarted':
+        transcriptionControlInstance.progress = "SUBMITTED";
+        transcriptionControlInstance.transcription = retrieveTranscriptionResultsOutcome;
+        transcriptionControlInstance.save();
+        shouldPoll = true;
+        break;
+      default:
+        shouldPoll = true;
+    }
+
+    return shouldPoll;
+  }
+
+  async function removeTranscriptionResults(transcriptionControlInstance) {
+    if (!transcriptionControlInstance.status.results[0]) {
+      return {}
+    }
+    // 2. Delete Transcription Results from Azure
+    let transcriptionResultsUrl =
+      transcriptionControlInstance.status.results[0].resultUrls[0].resultUrl;
+    let blobPath = url.parse(transcriptionResultsUrl).pathname;
+    let folderName = blobPath.split("/")[2];
+    let fileName = blobPath.split("/")[3];
+
+    let deleteTranscriptionOutcome = await AzureBlobUtilsInternal.deleteBlob(
+      process.env.AZURE_STORAGE_TRANSCRIPT_CONTAINER,
+      folderName + "/" + fileName
+    );
+    return deleteTranscriptionOutcome; 
+  }
+
   function uploadFileToLocal(req, res) {
     return new Promise((resolve, reject) => {
       var upload = multer({
-        storage: storage
+        storage: storage,
+        limits: { fileSize: maxSize }
       }).array("file", 1);
       upload(req, res, err => {
         if (err) {
@@ -339,17 +400,22 @@ module.exports = function(TranscriptionControl) {
   });
 
   TranscriptionControl.observe('access', async function(context) {
-    if (context.options && context.options.accessToken && context.options.accessToken.userId == process.env.ADMIN_ID) return;
+    if (!context.options || !context.options.accessToken) return;
+    // If it the user is admin, then don't set the filter
+    if (context.options && context.options.accessToken && context.options.accessToken.userId == process.env.ADMIN_ID) {
+      return;
+    }
 
     if (!context.query) {
       context.query = { where: { userId : context.options.accessToken.userId }}
     } else {
       if (!context.query.where) {
+        
         context.query.where = {}
         context.query.where.userId = context.options.accessToken.userId
       }
     }
-    
+    console.log(context.query)
     return;
   });
 };

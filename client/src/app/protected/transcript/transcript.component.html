@@ -25,7 +25,7 @@
                 Select Audio file to Transcribe
             </label>
             <input id="file-upload" type="file" name="audioFileRef" (change)="onFileChange($event)" />
-            <button *ngIf="activeUser==='admin'" type="button" class="btn btn-primary" (click)="selectExistingTranscription()">Select Existing
+            <button *ngIf="activeUser==='admin'" type="button" class="btn btn-primary" [disabled]="isTranscriptionInProgress" (click)="selectExistingTranscription()">Select Existing
                 Transcription</button>
         </div>
         <div class="clr-col-4">
@@ -82,5 +82,16 @@
         <p>If you refresh the page now, you will loose your transcription.</p>
         <p>You selected {{activeFileName}}.</p>
         <p>The transcription is currently {{activeProgress}}</p>
+    </div>
+</clr-modal>
+<clr-modal [(clrModalOpen)]="showTranscriptionFailure" [clrModalStaticBackdrop]="true" [clrModalSize]="'md'"
+    [clrModalClosable]="false">
+    <h3 class="modal-title">Transcription Process has Failed.</h3>
+    <div class="modal-body">
+        <p>{{transcriptionFailureMsg}}</p>
+        
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-primary" (click)="showTranscriptionFailure = false;deleteExistingTranscription()" [disabled]="!isTranscriptSelected()">OK</button>
     </div>
 </clr-modal>

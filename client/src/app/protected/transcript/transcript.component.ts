@@ -22,12 +22,14 @@ export class TranscriptComponent implements OnInit {
 
   isTranscriptionInProgress = false;
   isTranscriptSelectionOpen = false;
+  showTranscriptionFailure = false;
 
   existingTranscriptions;
   selectedTranscript;
 
   alertMsg;
   errorMsg;
+  transcriptionFailureMsg;
 
   constructor(private formBuilder: FormBuilder, private dataSvc: DataService, private authSvc: AuthService) { }
 
@@ -44,11 +46,17 @@ export class TranscriptComponent implements OnInit {
     this.dataSvc.getExistingTranscriptions().subscribe({
       next: (existingTranscriptionsOutcome) => {
         if (existingTranscriptionsOutcome.length > 0) {
-          this.selectedTranscript = existingTranscriptionsOutcome[0];
-          this.loadSelectedTranscription();
+          this.selectedTranscript = existingTranscriptionsOutcome[existingTranscriptionsOutcome.length - 1];
+          this.activeTranscriptionId = this.selectedTranscript.id;
+          if (this.selectedTranscript.progress !== 'COMPLETE') {
+            this.isTranscriptionInProgress = true;
+            this.monitorTranscriptionProcess();
+          } else {
+            this.loadSelectedTranscription();
+          }
         }
       }
-    })
+    });
   }
 
   onFileChange(event) {
@@ -79,9 +87,16 @@ export class TranscriptComponent implements OnInit {
         console.log(getTranscriptionOutcome)
         this.activeProgress = getTranscriptionOutcome.progress;
         if (getTranscriptionOutcome.progress !== 'COMPLETE') {
-          setTimeout(() => {
-            this.monitorTranscriptionProcess();
-          }, 10000);
+          if (getTranscriptionOutcome.progress === 'FAILED') {
+            this.isTranscriptionInProgress = false;
+            this.transcriptionFailureMsg = 'Transcription processing error: ' +
+              getTranscriptionOutcome.status.status + ' with ' + getTranscriptionOutcome.status.statusMessage;
+            this.showTranscriptionFailure = true;
+          } else {
+            setTimeout(() => {
+              this.monitorTranscriptionProcess();
+            }, 10000);
+          }
         } else {
           this.isTranscriptionInProgress = false;
           this.loadTranscription();
@@ -103,17 +118,33 @@ export class TranscriptComponent implements OnInit {
     this.dataSvc.getTranscription(this.activeTranscriptionId).subscribe({
       next: (getTranscriptionOutcome) => {
         console.log(getTranscriptionOutcome);
-        for (const seg of getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].SegmentResults) {
-          if (this.activeTranscription.length > 0 && 
-                seg.SpeakerId === this.activeTranscription[this.activeTranscription.length - 1].SpeakerId) {
-            this.activeTranscription[this.activeTranscription.length - 1].phrase += ' ' + seg.NBest[0].Display;
+        // Check the actual transcription status
+        if (getTranscriptionOutcome.transcription &&
+              getTranscriptionOutcome.transcription.transcript &&
+                getTranscriptionOutcome.transcription.transcript.AudioFileResults[0]) {
+          if (getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].SegmentResults.length > 0) {
+            for (const seg of getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].SegmentResults) {
+              if (this.activeTranscription.length > 0 &&
+                    seg.SpeakerId === this.activeTranscription[this.activeTranscription.length - 1].SpeakerId) {
+                this.activeTranscription[this.activeTranscription.length - 1].phrase += ' ' + seg.NBest[0].Display;
+              } else {
+                this.activeTranscription.push({
+                  SpeakerId: seg.SpeakerId,
+                  position: seg.SpeakerId === '1' ? 'left' : 'right',
+                  phrase: seg.NBest[0].Display,
+                  sentiment: seg.NBest[0].Sentiment
+                });
+              }
+            }
           } else {
-            this.activeTranscription.push({
-              SpeakerId: seg.SpeakerId,
-              position: seg.SpeakerId === '1' ? 'left' : 'right',
-              phrase: seg.NBest[0].Display,
-              sentiment: seg.NBest[0].Sentiment
-            });
+            this.transcriptionFailureMsg = 'This was probably a dual channel recording.  Please convert to mono first.';
+            this.showTranscriptionFailure = true;
+          }
+        } else {
+          if (getTranscriptionOutcome.status && getTranscriptionOutcome.status.status) {
+            this.transcriptionFailureMsg = 'Transcription processing error: ' +
+              getTranscriptionOutcome.status.status + ' with ' + getTranscriptionOutcome.status.statusMessage;
+            this.showTranscriptionFailure = true;
           }
         }
         this.dataSvc.getAudioUrl(this.activeTranscriptionId).subscribe({

@@ -7,7 +7,7 @@ import { Title } from '@angular/platform-browser';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'STT Tech Demo';
+  title = 'S2T on Azure Tech Demo';
 
   public constructor(private titleService: Title ) {
     this.titleService.setTitle( this.title );
