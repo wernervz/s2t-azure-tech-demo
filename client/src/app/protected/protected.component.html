@@ -1,0 +1,22 @@
+<header class="header-6">
+    <div class="branding">
+        <clr-icon shape="talk-bubbles" size="36" style="margin-top:12px;"></clr-icon>
+        <span class="title">{{env.appTitle}}</span>
+    </div>
+    <div class="header-actions">
+        <clr-dropdown>
+            <button class="nav-icon" clrDropdownTrigger aria-label="toggle settings menu">
+                <clr-icon shape="user"></clr-icon>
+                <clr-icon shape="caret down"></clr-icon>
+            </button>
+            <clr-dropdown-menu *clrIfOpen clrPosition="bottom-right">
+                <a href="javascript:void(0)" clrDropdownItem (click)="logout()">Log out</a>
+            </clr-dropdown-menu>
+        </clr-dropdown>
+    </div>
+</header>
+<div class="content-container">
+    <div class="content-area">
+        <app-transcript></app-transcript>
+    </div>
+</div>

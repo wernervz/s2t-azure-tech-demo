@@ -1,0 +1,28 @@
+<div class="wrapper">
+    <div class="card login-card fadeInDown">
+        <form>
+            <div class="card-block">
+                <clr-alert [clrAlertType]="'danger'" [clrAlertClosed]="isFailureAlertClosed" class="alert-sm">
+                    <clr-alert-item>
+                        <span class="alert-text">
+                            Login Failed, please try again.
+                        </span>
+                    </clr-alert-item>
+                </clr-alert>
+                <div class="card-header">
+                    <h3 class="card-title">Welcome</h3>
+                </div>
+                <span class="card-text">
+                    <input class="clr-col-9" type="text" [(ngModel)]="credentials.username" name="username"
+                        autocomplete="off" placeholder="login" required />
+                    <input class="clr-col-9" type="password" [(ngModel)]="credentials.password" name="password"
+                        placeholder="password" required />
+                </span>
+            </div>
+            <div class="card-footer">
+                <button type="submit" class="btn btn-primary" [disabled]="validateCreds()" (click)="login()">OK</button>
+                <button type="button" class="btn" (click)="backToUnprotected()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>

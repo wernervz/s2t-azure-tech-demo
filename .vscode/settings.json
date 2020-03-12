@@ -1,0 +1,9 @@
+{
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}",
+        "client/*"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/cafdbc30-2cd6-44cb-844f-0e4dfd8b52a6/resourceGroups/co-np-eastus-gia-rg/providers/Microsoft.Web/sites/call-insights-demo",
+    "appService.deploySubpath": ""
+}

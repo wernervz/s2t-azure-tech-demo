@@ -1,0 +1,86 @@
+<div *ngIf="errorMsg" class="alert alert-danger" role="alert">
+    <div class="alert-items">
+        <div class="alert-item static">
+            <div class="alert-icon-wrapper">
+                <clr-icon class="alert-icon" shape="check-circle"></clr-icon>
+            </div>
+            <span class="alert-text">{{errorMsg}}</span>
+        </div>
+    </div>
+</div>
+<div *ngIf="alertMsg" class="alert alert-success" role="alert">
+    <div class="alert-items">
+        <div class="alert-item static">
+            <div class="alert-icon-wrapper">
+                <clr-icon class="alert-icon" shape="check-circle"></clr-icon>
+            </div>
+            <span class="alert-text">{{alertMsg}}</span>
+        </div>
+    </div>
+</div>
+<form>
+    <div class="clr-row">
+        <div class="clr-col-8">
+            <label for="file-upload" class="btn btn-primary">
+                Select Audio file to Transcribe
+            </label>
+            <input id="file-upload" type="file" name="audioFileRef" (change)="onFileChange($event)" />
+            <button *ngIf="activeUser==='admin'" type="button" class="btn btn-primary" (click)="selectExistingTranscription()">Select Existing
+                Transcription</button>
+        </div>
+        <div class="clr-col-4">
+            <div class="audio-player">
+                <audio controls *ngIf="activeAudioUrl">
+                    <source src="{{activeAudioUrl}}" type="audio/mp3">
+                    <p>Your browser doesn't support HTML5 audio. </p>
+                </audio>
+            </div>
+        </div>
+    </div>
+</form>
+<div class="card transcript-container">
+    <div class="card-block">
+        <h3 class="card-title">
+        </h3>
+        <p class="card-text">
+            <app-utterance *ngFor="let segment of activeTranscription" [segment]="segment"></app-utterance>
+        </p>
+    </div>
+</div>
+<clr-modal [(clrModalOpen)]="isTranscriptSelectionOpen" [clrModalStaticBackdrop]="true" [clrModalSize]="'lg'">
+    <h3 class="modal-title">Existing Transcriptions</h3>
+    <div class="modal-body">
+        <clr-datagrid *ngIf="isTranscriptSelectionOpen" [(clrDgSingleSelected)]="selectedTranscript">
+            <clr-dg-column>ID</clr-dg-column>
+            <clr-dg-column>User Id</clr-dg-column>
+            <clr-dg-column>File Name</clr-dg-column>
+            <clr-dg-column>Progress</clr-dg-column>
+            <clr-dg-column>Last Action Date</clr-dg-column>
+
+            <clr-dg-row *clrDgItems="let transcript of existingTranscriptions" [clrDgItem]="transcript">
+                <clr-dg-cell>{{transcript.id}}</clr-dg-cell>
+                <clr-dg-cell>{{transcript.userId}}</clr-dg-cell>
+                <clr-dg-cell>{{transcript.fileName}}</clr-dg-cell>
+                <clr-dg-cell>{{transcript.progress}}</clr-dg-cell>
+                <clr-dg-cell>{{transcript.status.lastActionDateTime | date:'medium'}}</clr-dg-cell>
+            </clr-dg-row>
+
+            <clr-dg-footer>{{existingTranscriptions.length}} transcriptions</clr-dg-footer>
+        </clr-datagrid>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-warning" (click)="deleteExistingTranscription()" [disabled]="!isTranscriptSelected()">Delete</button>
+        <button type="button" class="btn btn-primary" (click)="loadSelectedTranscription()" [disabled]="!isTranscriptSelected()">OK</button>
+        <button type="button" class="btn btn-default" (click)="isTranscriptSelectionOpen=false">Cancel</button>
+    </div>
+</clr-modal>
+<clr-modal [(clrModalOpen)]="isTranscriptionInProgress" [clrModalStaticBackdrop]="true" [clrModalSize]="'md'"
+    [clrModalClosable]="false">
+    <h3 class="modal-title">Transcription in Progress...</h3>
+    <div class="modal-body">
+        <p>Your transcription is being processed.  This will take a few minutes to complete, depending on the length of the audio.  Please be patient.</p>
+        <p>If you refresh the page now, you will loose your transcription.</p>
+        <p>You selected {{activeFileName}}.</p>
+        <p>The transcription is currently {{activeProgress}}</p>
+    </div>
+</clr-modal>
