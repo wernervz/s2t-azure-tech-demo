@@ -61,6 +61,11 @@ export class TranscriptComponent implements OnInit {
 
   onFileChange(event) {
     if (event.target.files.length > 0) {
+      // Reset
+      this.activeAudioUrl = null;
+      this.activeTranscription = [];
+      this.activeTranscriptionId = null;
+      // Submit
       const file = event.target.files[0];
       this.activeFileName = file.name;
       this.form.get('audioFileRef').setValue(file);
@@ -106,6 +111,10 @@ export class TranscriptComponent implements OnInit {
   }
 
   loadSelectedTranscription() {
+    // Reset
+    this.activeAudioUrl = undefined;
+    this.activeTranscription = [];
+    // Load
     this.isTranscriptSelectionOpen = false;
     this.activeTranscriptionId = this.selectedTranscript.id;
     this.loadTranscription();
@@ -161,9 +170,6 @@ export class TranscriptComponent implements OnInit {
   }
 
   selectExistingTranscription() {
-    this.activeAudioUrl = undefined;
-    this.activeTranscription = [];
-
     this.dataSvc.getExistingTranscriptions().subscribe({
       next: (getExistingTranscriptionsOutcome) => {
         for (const t of getExistingTranscriptionsOutcome) {

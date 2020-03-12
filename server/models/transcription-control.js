@@ -43,7 +43,7 @@ module.exports = function(TranscriptionControl) {
   
   TranscriptionControl.transcribeAudio = async function(req, res, options) {
     // Check whether this user has any other transcriptions and remove them first.
-    if (options.accessToken.userId !== process.env.ADMIN_ID) {
+    if (options.accessToken.userId != process.env.ADMIN_ID) {
       let foundExistingOutcome = await this.find({ where: { userId: options.accessToken.userId }});
       if (foundExistingOutcome.length > 0) {
         console.log('Removing existing transcription resources for user id.')
@@ -104,6 +104,8 @@ module.exports = function(TranscriptionControl) {
       uploadToLocalOutcome.fileName
     );
 
+    console.log('Batch transcription submitted with reference ' + submitBatchTranscriptionOutcome.reference )
+
     transcriptionControlInstance.progress = "QUEUED";
     transcriptionControlInstance.reference =
       submitBatchTranscriptionOutcome.reference;
@@ -117,6 +119,8 @@ module.exports = function(TranscriptionControl) {
 
   TranscriptionControl.cleanupExistingResources = async function(id, options) {
     
+    console.log('In cleanup of existing resources.')
+
     let transcriptionControlInstance = await this.findById(id);
 
     if (options.accessToken.userId != process.env.ADMIN_ID && transcriptionControlInstance.userId != options.accessToken.userId) {
@@ -186,14 +190,11 @@ module.exports = function(TranscriptionControl) {
 
   function retrieveTranscriptionResults(transcriptionControlInstance) {
     return new Promise(async (resolve, reject) => {
-      if (transcriptionControlInstance.progress == 'COMPLETE') {
-        // Not going yto find any because it was deleted.
-        return resolve({})
-      }
       let transcriptionStatus = await AzureSpeechUtilsLocal.getTranscriptionStatus(
         transcriptionControlInstance.reference
       );
       if (transcriptionStatus.results.length === 0) {
+        console.log('Transcription results is empty!!!')
         return resolve({});
       }
 
@@ -415,7 +416,6 @@ module.exports = function(TranscriptionControl) {
         context.query.where.userId = context.options.accessToken.userId
       }
     }
-    console.log(context.query)
     return;
   });
 };

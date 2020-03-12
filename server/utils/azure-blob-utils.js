@@ -93,6 +93,8 @@ AzureBlobUtilsInternal.prototype.uploadLocalFile = async function (containerName
 
 AzureBlobUtilsInternal.prototype.getBlobSAS = function(containerName, blobName) {
 
+    console.log('Getting a Blob SAS for container ' + containerName + ' and blob ' + blobName);
+
     let startsOn = new Date()
     let expiresOn = new Date(new Date().valueOf() + 300000)
 
