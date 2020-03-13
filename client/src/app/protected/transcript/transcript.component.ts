@@ -28,6 +28,7 @@ export class TranscriptComponent implements OnInit {
   selectedTranscript;
 
   alertMsg;
+  warningMsg;
   errorMsg;
   transcriptionFailureMsg;
 
@@ -133,6 +134,12 @@ export class TranscriptComponent implements OnInit {
               getTranscriptionOutcome.transcription.transcript &&
                 getTranscriptionOutcome.transcription.transcript.AudioFileResults[0]) {
           if (getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].SegmentResults.length > 0) {
+            //  Check whether this audio is multi channel
+            if (getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].CombinedResults.length > 1) {
+              this.showWarningMsg('This Audio file seems to be a multi-channel audio recording.' +
+                ' Convert this to mono channel to see diarization.');
+            }
+            // Load the Segments as the transcription
             for (const seg of getTranscriptionOutcome.transcription.transcript.AudioFileResults[0].SegmentResults) {
               if (this.activeTranscription.length > 0 &&
                     seg.SpeakerId === this.activeTranscription[this.activeTranscription.length - 1].SpeakerId) {
@@ -159,7 +166,7 @@ export class TranscriptComponent implements OnInit {
         }
         this.dataSvc.getAudioUrl(this.activeTranscriptionId).subscribe({
           next: (getAudioUrlOutcome) => {
-            console.log(getAudioUrlOutcome);
+            // console.log(getAudioUrlOutcome);
             this.activeAudioUrl = getAudioUrlOutcome.url;
           }
         });
@@ -190,16 +197,26 @@ export class TranscriptComponent implements OnInit {
     this.isTranscriptSelectionOpen = false;
     this.dataSvc.cleanupExistingTranscription(this.selectedTranscript.id).subscribe({
       next: (cleanupExistingTranscriptionOutcome) => {
-        console.log(cleanupExistingTranscriptionOutcome)
-        this.alertMsg = 'Transcript successfully removed.';
-        setTimeout(() => {
-          this.alertMsg = null;
-        }, 5000);
+        this.showAlertMsg('Transcript successfully removed.');
       },
       error: (e) => {
         this.showErrorMsg(e);
       }
     });
+  }
+
+  showWarningMsg(a) {
+    this.warningMsg = a;
+    setTimeout(() => {
+      this.warningMsg = null;
+    }, 5000);
+  }
+
+  showAlertMsg(a) {
+    this.alertMsg = a;
+    setTimeout(() => {
+      this.alertMsg = null;
+    }, 5000);
   }
 
   showErrorMsg(e) {
@@ -208,6 +225,7 @@ export class TranscriptComponent implements OnInit {
       this.errorMsg = null;
     }, 5000);
   }
+
   isTranscriptSelected() {
     return this.selectedTranscript !== undefined;
   }

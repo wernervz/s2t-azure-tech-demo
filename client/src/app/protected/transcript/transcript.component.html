@@ -8,6 +8,16 @@
         </div>
     </div>
 </div>
+<div *ngIf="warningMsg" class="alert alert-warning" role="alert">
+    <div class="alert-items">
+        <div class="alert-item static">
+            <div class="alert-icon-wrapper">
+                <clr-icon class="alert-icon" shape="check-circle"></clr-icon>
+            </div>
+            <span class="alert-text">{{warningMsg}}</span>
+        </div>
+    </div>
+</div>
 <div *ngIf="alertMsg" class="alert alert-success" role="alert">
     <div class="alert-items">
         <div class="alert-item static">
