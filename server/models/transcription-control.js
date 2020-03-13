@@ -24,8 +24,15 @@ module.exports = function(TranscriptionControl) {
       cb(null, dirPath + "/");
     },
     filename: function(req, file, cb) {
+      let accessToken = req.accessToken;
       uploadedFileName = file.originalname;
-      cb(null, file.originalname);
+      if (accessToken && accessToken.userId) {
+        let fn_split = file.originalname.split('.');
+        let fn_no_ext = fn_split.splice(0, fn_split.length - 1);
+        let fn_ext = fn_split;
+        uploadedFileName = fn_no_ext + '_' + accessToken.userId + '.' + fn_ext;
+      }
+      cb(null, uploadedFileName);
     }
   });
 

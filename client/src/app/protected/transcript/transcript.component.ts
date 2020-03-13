@@ -60,6 +60,7 @@ export class TranscriptComponent implements OnInit {
   }
 
   onFileChange(event) {
+    console.log(event);
     if (event.target.files.length > 0) {
       // Reset
       this.activeAudioUrl = null;

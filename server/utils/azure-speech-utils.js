@@ -10,7 +10,6 @@ AzureSpeechUtilsLocal.prototype.getTranscription = async function(reference) {};
 AzureSpeechUtilsLocal.prototype.getTranscriptionStatus = async function(
   reference
 ) {
-    console.log('Getting the transcription status...')
   let options = {
     headers: {
       "Ocp-Apim-Subscription-Key": process.env.STT_ACCESS_KEY,
@@ -21,8 +20,6 @@ AzureSpeechUtilsLocal.prototype.getTranscriptionStatus = async function(
   };
 
   let statusResponse = await got.get(reference, options);
-
-  console.log(statusResponse.statusCode);
 
   return statusResponse.body;
 };

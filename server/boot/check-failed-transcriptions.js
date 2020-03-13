@@ -11,7 +11,10 @@ module.exports = function (app, done) {
 
     TranscriptionControl.find({}, (err, found) => {
         for (let t of found) {
-            console.log('id: ' + t.id + ' progress: ' + t.progress + ' user ' + t.userId)
+            if (t.progress != 'COMPLETE') {
+                console.log('Deleting transcript id: ' + t.id + ' progress: ' + t.progress + ' user ' + t.userId )
+                TranscriptionControl.destroyById(t.id)
+            }
         }
     })
 
